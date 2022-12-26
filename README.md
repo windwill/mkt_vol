@@ -4,7 +4,10 @@ Market Volatility Analysis
 This repository contains data and programs used in the research project on market volatilty sponsoered by the Society of Actuaries.
 
 ## input data: daily_data.csv
-It contains market data for volatility, correlation analysis, and attribution analysis
+It contains daily market data for volatility, correlation analysis, and attribution analysis
+
+## input data: monthly_data.csv
+It contains monthly market data for volatility and correlation analysis
 
 ## R script: mkt_vol_program.r
 It has codes used for market volatility behavior analysis, attribution analysis, and asset allocation optimization.
