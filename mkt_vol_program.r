@@ -1,5 +1,5 @@
 # This file includes some R codes that are used when conducting the SOA sponsored research
-# project "Market Volatility"
+# project "Market Volatility Risk in an Era of Extreme Events"
 # The code is for eductional purpose only. It is provided 'as is' without warranty of any kind, 
 # either express or implied, warranties of fitness for a purpose, or the warranty of non-infringement. 
 # Although the authors try their best to test the tool, they make no warranty that
@@ -31,9 +31,18 @@ daily_data <- read.csv("daily_data.csv")
 n_business_days_yearly <- 252
 n_business_days_monthly <- round(252/12)
 daily_data$Date <- as.Date(daily_data$Date)
-# Figure 1
 
-par(mfrow=c(2,1))
+# Figure 1
+downside_deviation<-function(data,mar=0){
+	n_record <- length(data)
+	data_subtract_mar <- data - mar
+	data_subtract_mar <- data_subtract_mar[data_subtract_mar<0]
+	return(sqrt(sum(data_subtract_mar*data_subtract_mar,na.rm=TRUE)/n_record))
+}
+
+downside_deviation(daily_data$SPX_rtn,0)
+
+par(mfrow=c(3,1))
 
 plot(daily_data$Date,daily_data$SPX_rtn, type = "p", col="blue", pch=20, cex=0.25, main="SPX Daily Return", xlab="Date", ylab="SPX daily return")
 recession_start <- 0
@@ -85,6 +94,33 @@ moving_filter <- function(x, w, FUN, cl) {
 w <- n_business_days_monthly
 monthly_vol_spx <- moving_filter(daily_data$SPX_rtn,w,sd)*sqrt(n_business_days_yearly)
 plot(daily_data$Date,monthly_vol_spx , type = "p", col="blue", pch=20, cex=0.25, main="SPX Daily Return Volatility (Monthly Window)", xlab="Date", ylab="SPX daily return annualized volatility")
+recession_start <- 0
+recession_end <- 0
+for (idx in c(1:nrow(daily_data))){
+	# if (idx %% 10 == 0){print(idx)}
+	if(daily_data$Contraction[idx]==0){
+		if (recession_start != 0){
+			recession_end <- daily_data$Date[idx]
+			rect(recession_start, -1, recession_end, 1, density = 100, col = rgb(red=0, green=0, blue=1, alpha=0.1), border=NA)
+			recession_start <- 0
+			recession_end <- 0
+		} else {
+			next
+		}
+	} else {
+		if (recession_start == 0) {
+			recession_start <- daily_data$Date[idx]
+		} else {
+			next
+		}
+	}
+}
+rect(daily_data$Date[14975], -1, daily_data$Date[15291], 1, density = 100, col = rgb(red=0, green=1, blue=0, alpha=0.1), border=NA)
+
+# compute daily return downside volatility using 21-day window
+w <- n_business_days_monthly
+monthly_vol_spx <- moving_filter(daily_data$SPX_rtn,w,downside_deviation)*sqrt(n_business_days_yearly)
+plot(daily_data$Date,monthly_vol_spx , type = "p", col="blue", pch=20, cex=0.25, main="SPX Daily Return Downside Deviation (Monthly Window)", xlab="Date", ylab="SPX daily return annualized volatility")
 recession_start <- 0
 recession_end <- 0
 for (idx in c(1:nrow(daily_data))){
@@ -533,166 +569,6 @@ for (idx in c(1:nrow(russell_data))){
 }
 rect(russell_data$Date[14975-14961], -1, russell_data$Date[15291-14961], 1, density = 100, col = rgb(red=0, green=1, blue=0, alpha=0.1), border=NA)
 
-#monthly data
-monthly_data <- read_excel("data.xlsx", sheet="monthly_final", col_types = c(rep("numeric", 2), "date","text", rep("numeric", 19)), skip=0)
-
-monthly_new <- monthly_data[monthly_data$Year>=2020,]
-monthly_extreme <- monthly_data[monthly_data$Contraction==1,]
-monthly_fc_2008 <- monthly_data[960:978,]
-monthly_great_depression <- monthly_data[20:63,]
-monthly_black_monday <- monthly_data[718:732,]
-
-perc <- 0.01
-
-monthly_all_ds <- create_ds(monthly_data[, !names(monthly_data) %in% c("Date","yyyy-mm")], perc)
-write.csv(monthly_all_ds,"monthly_all_ds.csv")
-monthly_new_ds <- create_ds(monthly_new[, !names(monthly_new) %in% c("Date","yyyy-mm")], perc)
-write.csv(monthly_new_ds,"monthly_new_ds_v2.csv")
-monthly_fc_2008_ds <- create_ds(monthly_fc_2008[, !names(monthly_fc_2008) %in% c("Date","yyyy-mm")], perc)
-write.csv(monthly_fc_2008_ds,"monthly_fc_2008_ds.csv")
-monthly_great_depression_ds <- create_ds(monthly_great_depression[, !names(monthly_great_depression) %in% c("Date","yyyy-mm")], perc)
-write.csv(monthly_great_depression_ds,"monthly_great_depression_ds.csv")
-monthly_black_monday_ds <- create_ds(monthly_black_monday[, !names(monthly_black_monday) %in% c("Date","yyyy-mm")], perc)
-write.csv(monthly_black_monday_ds,"monthly_black_monday_ds.csv")
-
-# Figure 1
-
-par(mfrow=c(2,1))
-
-plot(monthly_data$Date,monthly_data$SPX_rtn, type = "p", col="blue", pch=20, cex=0.25, main="SPX Monthly Return", xlab="Date", ylab="SPX monthly return")
-recession_start <- 0
-recession_end <- 0
-for (idx in c(1:nrow(monthly_data))){
-	# if (idx %% 10 == 0){print(idx)}
-	if(monthly_data$Contraction[idx]==0){
-		if (recession_start != 0){
-			recession_end <- monthly_data$Date[idx]
-			rect(recession_start, -1, recession_end, 1, density = 100, col = rgb(red=0, green=0, blue=1, alpha=0.1), border=NA)
-			recession_start <- 0
-			recession_end <- 0
-		} else {
-			next
-		}
-	} else {
-		if (recession_start == 0) {
-			recession_start <- monthly_data$Date[idx]
-		} else {
-			next
-		}
-	}
-}
-rect(monthly_data$Date[718], -1, monthly_data$Date[732], 1, density = 100, col = rgb(red=0, green=1, blue=0, alpha=0.1), border=NA)
-
-# compute daily return volatility using 21-day window
-w <- 12
-monthly_vol_spx <- moving_filter(monthly_data$SPX_rtn,w,sd)
-plot(monthly_data$Date,monthly_vol_spx , type = "p", col="blue", pch=20, cex=0.25, main="SPX Monthly Return Volatility (Monthly Window)", xlab="Date", ylab="SPX monthly return volatility")
-recession_start <- 0
-recession_end <- 0
-for (idx in c(1:nrow(monthly_data))){
-	# if (idx %% 10 == 0){print(idx)}
-	if(monthly_data$Contraction[idx]==0){
-		if (recession_start != 0){
-			recession_end <- monthly_data$Date[idx]
-			rect(recession_start, -1, recession_end, 1, density = 100, col = rgb(red=0, green=0, blue=1, alpha=0.1), border=NA)
-			recession_start <- 0
-			recession_end <- 0
-		} else {
-			next
-		}
-	} else {
-		if (recession_start == 0) {
-			recession_start <- monthly_data$Date[idx]
-		} else {
-			next
-		}
-	}
-}
-rect(monthly_data$Date[718], -1, monthly_data$Date[732], 1, density = 100, col = rgb(red=0, green=1, blue=0, alpha=0.1), border=NA)
-
-
-# Implied Volatility, Figure 2
-iv_data <- monthly_data[as.Date(monthly_data$Date)>as.Date("1990-1-1"),]
-plot(iv_data$Date,unlist(iv_data[, "VIXCLS"]), type = "p", col="blue", pch=20, cex=0.25, main="SPX Implied Volatility", xlab="Date", ylab="VIXCLS")
-
-for (idx in c(1:nrow(iv_data))){
-	# if (idx %% 10 == 0){print(idx)}
-	if(iv_data$Contraction[idx]==0){
-		if (recession_start != 0){
-			recession_end <- iv_data$Date[idx]
-			rect(recession_start, -1, recession_end, 1, density = 100, col = rgb(red=0, green=0, blue=1, alpha=0.1), border=NA)
-			recession_start <- 0
-			recession_end <- 0
-		} else {
-			next
-		}
-	} else {
-		if (recession_start == 0) {
-			recession_start <- iv_data$Date[idx]
-		} else {
-			next
-		}
-	}
-}
-
-
-# Realized Vol of (Implied) Volatility, Figure 4
-par(mfrow=c(2,1))
-
-# compute vol of volatility using 21-day window
-w <- 12
-monthly_vol_spx <- moving_filter(monthly_data$SPX_rtn,w,sd)*((12)**0.5)
-monthly_vol_of_vol_spx <- moving_filter(monthly_vol_spx,w,sd)*((12)**0.5)
-plot(monthly_data$Date,monthly_vol_of_vol_spx, type = "p", col="blue", pch=20, cex=0.25, main="SPX Realized Volatility of Volatility", xlab="Date", ylab="Vol of Monthly SPX Vol")
-
-for (idx in c(1:nrow(monthly_data))){
-	# if (idx %% 10 == 0){print(idx)}
-	if(monthly_data$Contraction[idx]==0){
-		if (recession_start != 0){
-			recession_end <- monthly_data$Date[idx]
-			rect(recession_start, -1, recession_end, 1, density = 100, col = rgb(red=0, green=0, blue=1, alpha=0.1), border=NA)
-			recession_start <- 0
-			recession_end <- 0
-		} else {
-			next
-		}
-	} else {
-		if (recession_start == 0) {
-			recession_start <- monthly_data$Date[idx]
-		} else {
-			next
-		}
-	}
-}
-rect(monthly_data$Date[718], -1, monthly_data$Date[732], 1, density = 100, col = rgb(red=0, green=1, blue=0, alpha=0.1), border=NA)
-
-# compute vol of implied volatility using 21-day window
-w <- 12
-monthly_vol_of_vol_spx <- moving_filter(monthly_data$VIXCLS,w,sd)*((12)**0.5) #annualized
-plot(monthly_data$Date,monthly_vol_of_vol_spx, type = "p", col="blue", pch=20, cex=0.25, main="SPX Realized Volatility of Implied Volatility", xlab="Date", ylab="Vol of VIXCLS")
-
-for (idx in c(1:nrow(monthly_data))){
-	# if (idx %% 10 == 0){print(idx)}
-	if(monthly_data$Contraction[idx]==0){
-		if (recession_start != 0){
-			recession_end <- monthly_data$Date[idx]
-			rect(recession_start, -1, recession_end, 1, density = 100, col = rgb(red=0, green=0, blue=1, alpha=0.1), border=NA)
-			recession_start <- 0
-			recession_end <- 0
-		} else {
-			next
-		}
-	} else {
-		if (recession_start == 0) {
-			recession_start <- monthly_data$Date[idx]
-		} else {
-			next
-		}
-	}
-}
-rect(monthly_data$Date[718], -1, monthly_data$Date[732], 1, density = 100, col = rgb(red=0, green=1, blue=0, alpha=0.1), border=NA)
-
-
 
 #Volatility clustering
 
@@ -707,11 +583,11 @@ acf_fc_2008 <- acf(daily_fc_2008$SPX_rtn, lag.max = lag_max, plot=FALSE)
 acf_black_monday <- acf(daily_black_monday$SPX_rtn, lag.max = lag_max, plot=FALSE)
 acf_great_depression <- acf(daily_great_depression$SPX_rtn, lag.max = lag_max, plot=FALSE)
 
-acf_all <- acf_all[2:length(acf_all)]
-acf_new <- acf_new[2:length(acf_new)]
-acf_fc_2008 <- acf_fc_2008[2:length(acf_fc_2008)]
-acf_black_monday <- acf_black_monday[2:length(acf_black_monday)]
-acf_great_depression <- acf_great_depression[2:length(acf_great_depression)]
+acf_all <- acf_all[2:(lag_max+1)]
+acf_new <- acf_new[2:(lag_max+1)]
+acf_fc_2008 <- acf_fc_2008[2:(lag_max+1)]
+acf_black_monday <- acf_black_monday[2:(lag_max+1)]
+acf_great_depression <- acf_great_depression[2:(lag_max+1)]
 
 
 plot(acf_all, main="ACF: S&P 500 Daily Return (Jan 1928 - Jun 2022)", ylim=c(-0.4,0.4))
@@ -926,14 +802,14 @@ rtn_cum = rtn_cum - 1
 annual_VaR_conditional <- quantile(rtn_cum, c(0.005, 0.05, 0.95, 0.995))
 annual_VaR_unconditional <- qnorm(c(0.005, 0.05, 0.95, 0.995),0.0006092149*252,0.01602575*252^0.5)
 
-plot(daily_new$Date[start_idx:(start_idx+252-1)],actual_rtn, type = "p", col="blue", pch=20, cex=0.25, main="Conditional VaR Estimation (Mar 2020 - Feb 2021)", xlab="Date", ylab="SPX return", ylim=c(-0.15,0.15))
+plot(daily_new$Date[start_idx:(start_idx+252-1)],actual_rtn, type = "p", col="red", pch=20, cex=0.5, main="Conditional VaR Estimation (Mar 2020 - Feb 2021)", xlab="Date", ylab="SPX return", ylim=c(-0.15,0.15))
 lines(daily_new$Date[start_idx:(start_idx+252-1)],percentile_5th, type="l", lty=2, col="green", cex=0.25)
 lines(daily_new$Date[start_idx:(start_idx+252-1)],percentile_95th, type="l", lty=2, col="green", cex=0.25)
 lines(daily_new$Date[start_idx:(start_idx+252-1)],percentile_0_5th, type="l", lty=3, col="black", cex=0.25)
 lines(daily_new$Date[start_idx:(start_idx+252-1)],percentile_99_5th, type="l", lty=3, col="black", cex=0.25)
 lines(daily_new$Date[start_idx:(start_idx+252-1)],rep(0.01602575*qnorm(0.005,0,1),252), type="l", lty=4, col="brown", cex=0.25)
 lines(daily_new$Date[start_idx:(start_idx+252-1)],rep(0.01602575*qnorm(0.995,0,1),252), type="l", lty=4, col="brown", cex=0.25)
-legend(daily_new$Date[start_idx+180], 0.15, legend=c("actual return", "5/95th percentile conditional", "0.5/99.5th percentile conditional", "0.5/99.5th percentile Unconditional"), col=c("blue", "green", "black","brown"), pch = c(20,26,26,26), lty=c(0,2,3,4), cex=0.8)
+legend(daily_new$Date[start_idx+180], 0.15, legend=c("actual return", "5/95th percentile conditional", "0.5/99.5th percentile conditional", "0.5/99.5th percentile Unconditional"), col=c("red", "green", "black","brown"), pch = c(20,26,26,26), lty=c(0,2,3,4), cex=0.8)
 
 
 
@@ -1213,7 +1089,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Jul 1954 - Apr 2022)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "RdBu",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 melted_corr_mat <- melt(round(cm_extreme,2))
 # head(melted_corr_mat)
@@ -1221,7 +1097,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Recession Periods)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 melted_corr_mat <- melt(round(cm_new,2))
 # head(melted_corr_mat)
@@ -1229,7 +1105,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Jan 2020 - Jun 2022)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 melted_corr_mat <- melt(round(cm_fc_2008,2))
 # head(melted_corr_mat)
@@ -1237,14 +1113,12 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Dec 2007 – Jun 2009)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 
 
 # Monthly data
-library(readxl)
-monthly_data <- read_excel("data.xlsx", sheet="monthly_final", col_types = c(rep("numeric", 2), "date","text", rep("numeric", 19)), skip=0)
-
+monthly_data <- read.csv("monthly_data.csv")
 monthly_new <- monthly_data[monthly_data$Year>=2020,]
 monthly_extreme <- monthly_data[monthly_data$Contraction==1,]
 monthly_fc_2008 <- monthly_data[960:978,]
@@ -1276,7 +1150,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Jul 1954 - Jun 2022)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 melted_corr_mat <- melt(round(cm_extreme,2))
 # head(melted_corr_mat)
@@ -1284,7 +1158,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Recession Periods)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 melted_corr_mat <- melt(round(cm_new,2))
 # head(melted_corr_mat)
@@ -1292,7 +1166,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Jan 2020 - Jun 2022)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 melted_corr_mat <- melt(round(cm_fc_2008,2))
 # head(melted_corr_mat)
@@ -1300,7 +1174,7 @@ ggplot(data = melted_corr_mat, aes(x=Var1, y=Var2,
                                    fill=value)) + scale_y_discrete(limits = rev) +
 geom_tile() + ggtitle("Correlation Matrix (Dec 2007 – Jun 2009)") +
   theme(axis.title.x=element_blank(),axis.title.y=element_blank(),axis.text.x = element_text(angle = 90)) +  
-  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "black", size = 2)
+  scale_fill_distiller(palette = "BrBG",limits=c(-1,1)) + geom_text(aes(Var2, Var1, label = value), color = "green", size = 6)
 
 
 # Copula Simulation
